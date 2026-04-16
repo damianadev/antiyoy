@@ -1,15 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="stylesheet" type="text/css" href="style.css">
-	<title>Antiyoy Damian</title>
+  <meta charset="utf-8">
+  <title>Antiyoy</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-	<div id="game" style="position: relative; width: 1000px; height: 800px;"></div>
 
+  <h2>Antiyoy</h2>
 
-<script src="script.js"></script>
+  <div class="ui">
+    <button onclick="joinGame()">Join</button>
+    <button onclick="startGame()">Start</button>
+	<button onclick="endTurn()">End Turn</button>
+  </div>
+
+  <div id="game"></div>
+
+  <script src="script.js"></script>
 </body>
 </html>

@@ -1,34 +1,13 @@
 const DB = "https://tinkr.tech/sdb/Damian_space/Damian_Adamson";
+const BASE = "https://tinkr.tech";
+
 const container = document.getElementById("game");
 
-// Assets
-const hexAssets = {
-  red: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_red.svg",
-  green: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_green.svg",
-  blue: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_blue.svg",
-  yellow: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_yellow.svg",
-  purple: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_purple.svg",
-  neutral: "https://tinkr.tech/sdb_apps/antiyoy/images/hex_neutral.svg"
-};
+let selectedHex = null;
+let movedThisTurn = false;
 
-const unitAssets = {
-  peasant: "https://tinkr.tech/sdb_apps/antiyoy/images/unit_peasant.svg",
-  spearman: "https://tinkr.tech/sdb_apps/antiyoy/images/unit_spearman.svg",
-  knight: "https://tinkr.tech/sdb_apps/antiyoy/images/unit_knight.svg",
-  baron: "https://tinkr.tech/sdb_apps/antiyoy/images/unit_baron.svg"
-};
 
-const buildingAssets = {
-  farm: "https://tinkr.tech/sdb_apps/antiyoy/images/building_farm.svg",
-  tower: "https://tinkr.tech/sdb_apps/antiyoy/images/building_tower.svg",
-  fortress: "https://tinkr.tech/sdb_apps/antiyoy/images/building_fortress.svg"
-};
-
-const miscAssets = {
-  tree: "https://tinkr.tech/sdb_apps/antiyoy/images/tree.svg",
-  coin: "https://tinkr.tech/sdb_apps/antiyoy/images/coin.svg"
-};
-
+// LOAD GAME
 async function loadGame() {
   try {
     const res = await fetch(DB);
@@ -40,81 +19,159 @@ async function loadGame() {
       if (hex.type === "impassable") continue;
 
       const el = document.createElement("div");
-      el.style.position = "absolute";
+      el.className = "hex";
+
       el.style.left = hex.x + "px";
       el.style.top = hex.y + "px";
       el.style.width = hex.width + "px";
       el.style.height = hex.height + "px";
 
-      // Hex
       const img = document.createElement("img");
-      const color = hex.owner ? hex.owner : "neutral";
-      img.src = hexAssets[color] || hexAssets.neutral;
-      img.style.width = "100%";
-      img.style.height = "100%";
+      img.src = BASE + hex.image;
       el.appendChild(img);
 
-      // Units
       if (hex.unit_image) {
-        const unitName = hex.unit_image.replace(".svg", "").replace("unit_", "");
         const unit = document.createElement("img");
-        unit.src = unitAssets[unitName] || "";
-        unit.style.position = "absolute";
-        unit.style.left = "0";
-        unit.style.top = "0";
-        unit.style.width = "100%";
-        unit.style.height = "100%";
-        unit.style.pointerEvents = "none";
+        unit.src = BASE + hex.unit_image;
+        unit.className = "overlay";
         el.appendChild(unit);
       }
 
-      // Buildings
       if (hex.building_image) {
-        const buildingName = hex.building_image.replace(".svg", "").replace("building_", "");
         const building = document.createElement("img");
-        building.src = buildingAssets[buildingName] || "";
-        building.style.position = "absolute";
-        building.style.left = "0";
-        building.style.top = "0";
-        building.style.width = "100%";
-        building.style.height = "100%";
-        building.style.pointerEvents = "none";
+        building.src = BASE + hex.building_image;
+        building.className = "overlay";
         el.appendChild(building);
       }
 
-      // Trees
-      if (hex.hasTree || hex.tree_image) {
-        const tree = document.createElement("img");
-        tree.src = hex.tree_image ? DB + hex.tree_image : miscAssets.tree;
-        tree.style.position = "absolute";
-        tree.style.left = "0";
-        tree.style.top = "0";
-        tree.style.width = "100%";
-        tree.style.height = "100%";
-        tree.style.pointerEvents = "none";
-        el.appendChild(tree);
-      }
-
-      // Coins
-      if (hex.hasCoin || hex.coin_image) {
-        const coin = document.createElement("img");
-        coin.src = hex.coin_image ? DB + hex.coin_image : miscAssets.coin;
-        coin.style.position = "absolute";
-        coin.style.left = "0";
-        coin.style.top = "0";
-        coin.style.width = "100%";
-        coin.style.height = "100%";
-        coin.style.pointerEvents = "none";
-        el.appendChild(coin);
-      }
+      el.addEventListener("click", () => onHexClick(el, hex));
 
       container.appendChild(el);
     }
 
   } catch (err) {
-    console.error("Error with map rendering", err);
+    console.error("Load error:", err);
   }
 }
 
+
+// CLICK SYSTEM
+function onHexClick(el, hex) {
+  document.querySelectorAll(".hex").forEach(h => h.classList.remove("selected"));
+
+  if (movedThisTurn) return;
+
+  if (!selectedHex) {
+    if (!hex.unit) return;
+
+    selectedHex = hex;
+    el.classList.add("selected");
+    return;
+  }
+
+  moveUnit(selectedHex, hex);
+  selectedHex = null;
+}
+
+
+// MOVE SYSTEM
+async function moveUnit(from, to) {
+  const player_key = localStorage.getItem("player_key");
+
+  if (!player_key) return;
+  if (!from.unit) return;
+  if (movedThisTurn) return;
+
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "move",
+      player_key,
+      from: { col: from.col, row: from.row },
+      to: { col: to.col, row: to.row }
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.log("MOVE ERROR:", data.error);
+    return;
+  }
+
+  movedThisTurn = true;
+}
+
+
+// END TURN
+async function endTurn() {
+  const player_key = localStorage.getItem("player_key");
+
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "end_turn",
+      player_key
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.log("END TURN ERROR:", data.error);
+    return;
+  }
+
+  movedThisTurn = false;
+  selectedHex = null;
+}
+
+
+// JOIN GAME
+async function joinGame() {
+  const username = prompt("Enter username");
+
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "join",
+      username
+    })
+  });
+
+  const data = await res.json();
+
+  if (data.player_key) {
+    localStorage.setItem("player_key", data.player_key);
+    alert("Joined!");
+  } else {
+    console.log(data);
+    alert("Join failed");
+  }
+}
+
+
+// START GAME
+async function startGame() {
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "start"
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.log(data);
+  }
+}
+
+
+// AUTO UPDATE
 loadGame();
 setInterval(loadGame, 1000);
