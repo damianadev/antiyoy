@@ -9,13 +9,20 @@
 
   <h2>Antiyoy</h2>
 
-  <div class="ui">
-    <button onclick="joinGame()">Join</button>
-    <button onclick="startGame()">Start</button>
-	<button onclick="endTurn()">End Turn</button>
-  </div>
+<div id="game"></div>
 
-  <div id="game"></div>
+<div id="ui"></div>
+
+<button onclick="joinGame()">Join</button>
+<button onclick="startGame()">Start</button>
+<button onclick="endTurn()">End Turn</button>
+
+<button onclick="selectedHex='BUY_PEASANT'">Peasant (10)</button>
+<button onclick="selectedHex='BUY_SPEARMAN'">Spearman (20)</button>
+<button onclick="selectedHex='BUY_KNIGHT'">Knight (40)</button>
+<button onclick="selectedHex='BUY_FARM'">Farm (12)</button>
+<button onclick="selectedHex='BUY_TOWER'">Tower (15)</button>
+<button onclick="selectedHex='BUY_FORTRESS'">Fortress (35)</button>
 
   <script src="script.js"></script>
 </body>

@@ -6,14 +6,52 @@ const container = document.getElementById("game");
 let selectedHex = null;
 let movedThisTurn = false;
 
+let currentPlayer = null;
+let myUsername = localStorage.getItem("username");
 
-// LOAD GAME
+// PRICES
+const PRICES = {
+  peasant: 10,
+  spearman: 20,
+  knight: 40,
+  farm: 12,
+  tower: 15,
+  fortress: 35
+};
+
+//LOAD GAME
 async function loadGame() {
   try {
     const res = await fetch(DB);
     const state = await res.json();
 
     container.innerHTML = "";
+
+    currentPlayer = state.current_player;
+
+    const me = state.players.find(
+      p => p.username.toLowerCase() === (myUsername || "").toLowerCase()
+    );
+
+    console.log("CURRENT TURN:", state.current_player);
+
+    let ui = document.getElementById("ui");
+
+    if (ui && me) {
+      ui.innerHTML = `
+        <div>Turn: <b>${state.current_player}</b></div>
+        <hr>
+        <div>💰 My money: <b>${me.money}</b></div>
+        <div>📈 Income: +${me.income}</div>
+        <hr>
+        <div>Peasant: ${PRICES.peasant}</div>
+        <div>Spearman: ${PRICES.spearman}</div>
+        <div>Knight: ${PRICES.knight}</div>
+        <div>Farm: ${PRICES.farm}</div>
+        <div>Tower: ${PRICES.tower}</div>
+        <div>Fortress: ${PRICES.fortress}</div>
+      `;
+    }
 
     for (const hex of state.map) {
       if (hex.type === "impassable") continue;
@@ -25,6 +63,9 @@ async function loadGame() {
       el.style.top = hex.y + "px";
       el.style.width = hex.width + "px";
       el.style.height = hex.height + "px";
+
+      el.dataset.col = hex.col;
+      el.dataset.row = hex.row;
 
       const img = document.createElement("img");
       img.src = BASE + hex.image;
@@ -44,7 +85,7 @@ async function loadGame() {
         el.appendChild(building);
       }
 
-      el.addEventListener("click", () => onHexClick(el, hex));
+      el.addEventListener("click", () => onHexClick(hex));
 
       container.appendChild(el);
     }
@@ -54,18 +95,59 @@ async function loadGame() {
   }
 }
 
+//CLICK
+function onHexClick(hex) {
+  if (movedThisTurn) return;
+  if (currentPlayer !== myUsername) return;
 
-// CLICK SYSTEM
-function onHexClick(el, hex) {
   document.querySelectorAll(".hex").forEach(h => h.classList.remove("selected"));
 
-  if (movedThisTurn) return;
+  // BUY MODE
+  if (hex.unit === null && selectedHex === "BUY_PEASANT") {
+    buy("peasant", hex);
+    selectedHex = null;
+    return;
+  }
 
+  if (hex.unit === null && selectedHex === "BUY_SPEARMAN") {
+    buy("spearman", hex);
+    selectedHex = null;
+    return;
+  }
+
+  if (hex.unit === null && selectedHex === "BUY_KNIGHT") {
+    buy("knight", hex);
+    selectedHex = null;
+    return;
+  }
+
+  if (hex.unit === null && selectedHex === "BUY_FARM") {
+    buy("farm", hex);
+    selectedHex = null;
+    return;
+  }
+
+  if (hex.unit === null && selectedHex === "BUY_TOWER") {
+    buy("tower", hex);
+    selectedHex = null;
+    return;
+  }
+
+  if (hex.unit === null && selectedHex === "BUY_FORTRESS") {
+    buy("fortress", hex);
+    selectedHex = null;
+    return;
+  }
+
+  // MOVE MODE
   if (!selectedHex) {
     if (!hex.unit) return;
 
     selectedHex = hex;
-    el.classList.add("selected");
+
+    const el = findHexElement(hex);
+    if (el) el.classList.add("selected");
+
     return;
   }
 
@@ -73,8 +155,13 @@ function onHexClick(el, hex) {
   selectedHex = null;
 }
 
+//FIND ELEMENT
+function findHexElement(hex) {
+  return [...document.querySelectorAll(".hex")]
+    .find(el => el.dataset.col == hex.col && el.dataset.row == hex.row);
+}
 
-// MOVE SYSTEM
+//MOVE
 async function moveUnit(from, to) {
   const player_key = localStorage.getItem("player_key");
 
@@ -96,15 +183,44 @@ async function moveUnit(from, to) {
   const data = await res.json();
 
   if (!res.ok) {
-    console.log("MOVE ERROR:", data.error);
+    alert("MOVE ERROR: " + data.error);
     return;
   }
+
+  console.log(`${myUsername} moved from (${from.col},${from.row}) to (${to.col},${to.row})`);
 
   movedThisTurn = true;
 }
 
+//BUY
+async function buy(type, hex) {
+  const player_key = localStorage.getItem("player_key");
 
-// END TURN
+  if (!player_key) return;
+  if (currentPlayer !== myUsername) return;
+
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "buy",
+      player_key,
+      type,
+      hex: { col: hex.col, row: hex.row }
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert("BUY ERROR: " + data.error);
+    return;
+  }
+
+  console.log(`${myUsername} bought ${type} at (${hex.col},${hex.row})`);
+}
+
+//END TURN
 async function endTurn() {
   const player_key = localStorage.getItem("player_key");
 
@@ -120,16 +236,17 @@ async function endTurn() {
   const data = await res.json();
 
   if (!res.ok) {
-    console.log("END TURN ERROR:", data.error);
+    alert("END TURN ERROR: " + data.error);
     return;
   }
+
+  console.log("END TURN by", myUsername);
 
   movedThisTurn = false;
   selectedHex = null;
 }
 
-
-// JOIN GAME
+//JOIN
 async function joinGame() {
   const username = prompt("Enter username");
 
@@ -146,32 +263,35 @@ async function joinGame() {
 
   if (data.player_key) {
     localStorage.setItem("player_key", data.player_key);
+    localStorage.setItem("username", username);
+    myUsername = username;
     alert("Joined!");
   } else {
-    console.log(data);
-    alert("Join failed");
+    alert("Join failed: " + data.error);
   }
 }
 
-
-// START GAME
+//START GAME
 async function startGame() {
-  const res = await fetch(DB, {
+  await fetch(DB, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "start"
-    })
+    body: JSON.stringify({ action: "start" })
   });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    console.log(data);
-  }
 }
 
+//INIT
+window.onload = () => {
+  myUsername = localStorage.getItem("username");
+  loadGame();
+};
 
-// AUTO UPDATE
-loadGame();
-setInterval(loadGame, 1000);
+setInterval(loadGame, 1500);
+
+//DEBUG
+setInterval(() => {
+  console.log("---- DEBUG ----");
+  console.log("Current:", currentPlayer);
+  console.log("Me:", myUsername);
+  console.log("Selected:", selectedHex);
+}, 5000);
