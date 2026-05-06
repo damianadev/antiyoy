@@ -7,7 +7,7 @@ let selectedHex = null;
 let movedThisTurn = false;
 
 let currentPlayer = null;
-let myUsername = localStorage.getItem("username");
+let myUsername = sessionStorage.getItem("username");
 
 // PRICES
 const PRICES = {
@@ -39,10 +39,11 @@ async function loadGame() {
 
     if (ui && me) {
       ui.innerHTML = `
+        <div>Me: <b>${myUsername}</b></div>
         <div>Turn: <b>${state.current_player}</b></div>
         <hr>
-        <div>💰 My money: <b>${me.money}</b></div>
-        <div>📈 Income: +${me.income}</div>
+        <div>My money: <b>${me.money}</b></div>
+        <div>Income: +${me.income}</div>
         <hr>
         <div>Peasant: ${PRICES.peasant}</div>
         <div>Spearman: ${PRICES.spearman}</div>
@@ -71,18 +72,44 @@ async function loadGame() {
       img.src = BASE + hex.image;
       el.appendChild(img);
 
+      // UNIT
       if (hex.unit_image) {
         const unit = document.createElement("img");
         unit.src = BASE + hex.unit_image;
         unit.className = "overlay";
         el.appendChild(unit);
+
+        // NICKNAME
+        if (hex.owner) {
+          const name = document.createElement("div");
+          name.className = "player-name unit-name";
+          name.innerText = hex.owner;
+          name.style.display = "none";
+          el.appendChild(name);
+
+          el.addEventListener("mouseenter", () => {
+            name.style.display = "block";
+          });
+
+          el.addEventListener("mouseleave", () => {
+            name.style.display = "none";
+          });
+        }
       }
 
+      // BUILDING
       if (hex.building_image) {
         const building = document.createElement("img");
         building.src = BASE + hex.building_image;
         building.className = "overlay";
         el.appendChild(building);
+
+        if (hex.building === "fortress" && hex.owner) {
+          const name = document.createElement("div");
+          name.className = "player-name";
+          name.innerText = hex.owner;
+          el.appendChild(name);
+        }
       }
 
       el.addEventListener("click", () => onHexClick(hex));
@@ -102,7 +129,7 @@ function onHexClick(hex) {
 
   document.querySelectorAll(".hex").forEach(h => h.classList.remove("selected"));
 
-  // BUY MODE
+  // BUY
   if (hex.unit === null && selectedHex === "BUY_PEASANT") {
     buy("peasant", hex);
     selectedHex = null;
@@ -155,7 +182,7 @@ function onHexClick(hex) {
   selectedHex = null;
 }
 
-//FIND ELEMENT
+// FIND HEX
 function findHexElement(hex) {
   return [...document.querySelectorAll(".hex")]
     .find(el => el.dataset.col == hex.col && el.dataset.row == hex.row);
@@ -163,7 +190,7 @@ function findHexElement(hex) {
 
 //MOVE
 async function moveUnit(from, to) {
-  const player_key = localStorage.getItem("player_key");
+  const player_key = sessionStorage.getItem("player_key");
 
   if (!player_key) return;
   if (!from.unit) return;
@@ -194,7 +221,7 @@ async function moveUnit(from, to) {
 
 //BUY
 async function buy(type, hex) {
-  const player_key = localStorage.getItem("player_key");
+  const player_key = sessionStorage.getItem("player_key");
 
   if (!player_key) return;
   if (currentPlayer !== myUsername) return;
@@ -222,7 +249,7 @@ async function buy(type, hex) {
 
 //END TURN
 async function endTurn() {
-  const player_key = localStorage.getItem("player_key");
+  const player_key = sessionStorage.getItem("player_key");
 
   const res = await fetch(DB, {
     method: "POST",
@@ -262,8 +289,8 @@ async function joinGame() {
   const data = await res.json();
 
   if (data.player_key) {
-    localStorage.setItem("player_key", data.player_key);
-    localStorage.setItem("username", username);
+    sessionStorage.setItem("player_key", data.player_key);
+    sessionStorage.setItem("username", username);
     myUsername = username;
     alert("Joined!");
   } else {
@@ -282,7 +309,7 @@ async function startGame() {
 
 //INIT
 window.onload = () => {
-  myUsername = localStorage.getItem("username");
+  myUsername = sessionStorage.getItem("username");
   loadGame();
 };
 
